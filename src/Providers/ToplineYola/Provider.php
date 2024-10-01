@@ -68,7 +68,7 @@ class Provider extends Category implements ProviderInterface
             $this->api()->changePackage($domainId, $plan['planID']);
         } catch (\Throwable $e) {
             try {
-                if (isset($domainId)) {
+                if (isset($userRef) && isset($domainId)) {
                     $this->api()->terminate($userRef, $domainId);
                 }
             } finally {
