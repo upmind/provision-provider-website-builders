@@ -168,7 +168,7 @@ class DudaApi
         }
 
         $body = [
-            'template_id' => 3,
+            'template_id' => 0,
             'lang' => $lang,
             'site_data' => [
                 'site_domain' => $domain
@@ -178,8 +178,8 @@ class DudaApi
         $site = $this->makeRequest("sites/multiscreen/create", null, $body, 'POST');
         $siteId = $site['site_name'];
 
-        $this->changePlan($siteId, (int)$planId);
         $this->unsuspend($siteId);
+        $this->changePlan($siteId, (int)$planId);
 
         return $siteId;
     }
