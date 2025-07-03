@@ -2,6 +2,10 @@
 
 All notable changes to the package will be documented in this file.
 
+## v2.5.5 - 2025-07-03
+
+- Implement Duda provider
+
 ## v2.5.4 - 2024-10-02
 
 - Implement Yola provider via Topline Cloud Services
