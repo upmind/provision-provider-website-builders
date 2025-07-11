@@ -76,7 +76,7 @@ class DudaApi
         $plans = $this->makeRequest('sites/multiscreen/plans');
 
         foreach ($plans as $p) {
-            if (is_numeric($plan) && (int)$p['planId'] == (int)$plan) {
+            if (is_numeric($plan) && (int)$p['planId'] === (int)$plan) {
                 return $p;
             }
 
@@ -172,17 +172,20 @@ class DudaApi
     }
 
     /**
+     * Change the package of the given site and update the permissions of the given account.
+     *
+     * @param string $accountName Unique account identifier
      * @param string $siteId
-     * @param string $planId
+     * @param integer $planId
+     * @param string[] $permissions
+     *
      * @return void
+     *
      * @throws GuzzleException
      */
-    public function changePackage(string $siteId, string $planId): void
+    public function changePackage(string $accountName, string $siteId, int $planId, array $permissions): void
     {
-        if (!is_numeric($planId)) {
-            $planId = $this->getPlanId($planId);
-        }
-
+        $this->setSitePermissions($siteId, $accountName, $permissions);
         $this->changePlan($siteId, (int)$planId);
     }
 
@@ -235,10 +238,6 @@ class DudaApi
         ?string $lang,
         array $permissions
     ): string {
-        if (!is_numeric($planId)) {
-            $planId = $this->getPlanId($planId);
-        }
-
         $body = [
             'template_id' => 0,
             'lang' => $lang,

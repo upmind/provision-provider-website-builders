@@ -13,6 +13,7 @@ use Upmind\ProvisionBase\Provider\DataSet\Rules;
  * @property-read string|null $domain_name
  * @property-read string|integer $package_reference
  * @property-read integer $billing_cycle_months
+ * @property-read string|null $permissions Comma-separated list of permissions, e.g. `PUBLISH,EDIT`
  */
 class ChangePackageParams extends DataSet
 {
@@ -24,6 +25,7 @@ class ChangePackageParams extends DataSet
             'domain_name' => ['nullable', 'domain_name'],
             'package_reference' => ['required'],
             'billing_cycle_months' => ['required', 'integer'],
+            'permissions' => ['nullable', 'string'],
         ]);
     }
 }
