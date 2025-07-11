@@ -290,27 +290,6 @@ class DudaApi
     }
 
     /**
-     * @param string $planName
-     * @return int Plan id
-     * @throws GuzzleException
-     */
-    private function getPlanId(string $planName): int
-    {
-        $response = $this->makeRequest('sites/multiscreen/plans');
-
-        foreach ($response as $s) {
-            if (strtolower($s['planName']) == strtolower($planName)) {
-                return $s['planId'];
-            }
-        }
-
-        throw ProvisionFunctionError::create("Plan $planName not found")
-            ->withData([
-                'response' => $response,
-            ]);
-    }
-
-    /**
      * @param string $siteId
      * @param int $planId
      * @return void
