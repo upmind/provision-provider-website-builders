@@ -2,6 +2,11 @@
 
 All notable changes to the package will be documented in this file.
 
+## v2.5.7 - 2025-07-11
+
+- Fix DudaApi::getSupportedLanguage() use of Str::replace() for older laravel versions
+- Update Duda API error handling to return body if cannot be decoded as json
+
 ## v2.5.6 - 2025-07-11
 
 - Update Duda create() to create or re-use a duda account
