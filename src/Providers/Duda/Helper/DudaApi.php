@@ -308,7 +308,7 @@ class DudaApi
     private function getSupportedLanguage(?string $languageCode): string
     {
         $fallbackLang = 'en';
-        $lang = Str::replace('-', '_', strtolower($languageCode ?: $fallbackLang));
+        $lang = str_replace('-', '_', strtolower($languageCode ?: $fallbackLang));
 
         $supportedLanguages = [
             'ar',
