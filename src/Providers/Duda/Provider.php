@@ -28,6 +28,15 @@ use Upmind\ProvisionProviders\WebsiteBuilders\Providers\Duda\Helper\DudaApi;
  */
 class Provider extends Category implements ProviderInterface
 {
+    private const DEFAULT_PERMISSIONS = [
+        'PUBLISH',
+        'REPUBLISH',
+        'STATS_TAB',
+        'EDIT',
+        'LIMITED_EDITING',
+        'RESET'
+    ];
+
     protected Configuration $configuration;
 
     protected ?DudaApi $api = null;
@@ -56,9 +65,25 @@ class Provider extends Category implements ProviderInterface
                 $this->errorResult('Domain name is required!');
             }
 
-            $siteId = $this->api()->createSite((string)$params->domain_name, (string)$params->package_reference, $params->language_code ?? 'en');
+            $plan = $this->api()->getPlan((string)$params->package_reference);
 
-            return $this->getAccountInfo($params->site_builder_user_id, $siteId, 'Website created');
+            $account = $params->site_builder_user_id
+                ? $this->api()->getAccountData((string)$params->site_builder_user_id)
+                : $this->api()->createAccount(
+                    $params->customer_email,
+                    $params->customer_name,
+                    $params->language_code
+                );
+
+            $siteId = $this->api()->createSite(
+                $account['account_name'],
+                (string)$params->domain_name,
+                $plan['planId'],
+                $params->language_code,
+                $this->getPermissions($params->permissions, $plan['planName'])
+            );
+
+            return $this->getAccountInfo($account['account_name'], $siteId, 'Website created');
         } catch (\Throwable $e) {
             $this->handleException($e, $params);
         }
@@ -168,6 +193,41 @@ class Provider extends Category implements ProviderInterface
         } catch (\Throwable $e) {
             $this->handleException($e, $params);
         }
+    }
+
+    /**
+     * Return an array of site permissions.
+     *
+     * @param string|null $permissions Comma-separated list of permissions
+     * @param string $planName The name of the plan to determine default permissions
+     *
+     * @return string[] Array of permissions
+     */
+    private function getPermissions(?string $permissions, string $planName): array
+    {
+        $permissions = array_values(array_filter(explode(',', (string)$permissions)));
+
+        return $permissions ?: $this->detDefaultPermissions($planName);
+    }
+
+    /**
+     * Determine default permissions based on the plan name.
+     * If free, removes publish/republish from default permissions.
+     *
+     * @param string $planName The name of the plan
+     *
+     * @return string[] Default permissions
+     */
+    private function detDefaultPermissions(string $planName): array
+    {
+        $permissions = $this->configuration->default_permissions ?: self::DEFAULT_PERMISSIONS;
+
+        if (strtoupper($planName) === 'FREE') {
+            // remove 'PUBLISH' and 'REPUBLISH' permissions for free plans, since these actions trigger an implicit upgrade
+            return array_values(array_diff($permissions, ['PUBLISH', 'REPUBLISH']));
+        }
+
+        return $permissions;
     }
 
     /**

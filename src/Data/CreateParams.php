@@ -17,6 +17,7 @@ use Upmind\ProvisionBase\Provider\DataSet\Rules;
  * @property-read integer $billing_cycle_months
  * @property-read string|null $password
  * @property-read string|null $language_code E.g., `en`
+ * @property-read string|null $permissions Comma-separated list of permissions, e.g. `PUBLISH,EDIT`
  * @property-read mixed[]|null $extra Extra metadata to be passed to the provider
  */
 class CreateParams extends DataSet
@@ -33,6 +34,7 @@ class CreateParams extends DataSet
             'billing_cycle_months' => ['required', 'integer'],
             'password' => ['nullable', 'string'],
             'language_code' => ['nullable', 'string'],
+            'permissions' => ['nullable', 'string'],
             'extra' => ['nullable', 'array'],
         ]);
     }
