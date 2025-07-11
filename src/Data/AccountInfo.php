@@ -38,4 +38,10 @@ class AccountInfo extends ResultData
             'extra' => ['nullable', 'array'],
         ]);
     }
+
+    public function setSuspended(bool $suspended): self
+    {
+        $this->setValue('suspended', $suspended);
+        return $this;
+    }
 }

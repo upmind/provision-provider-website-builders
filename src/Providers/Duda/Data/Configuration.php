@@ -12,6 +12,7 @@ use Upmind\ProvisionBase\Provider\DataSet\Rules;
  *
  * @property-read string $username username
  * @property-read string $password password
+ * @property-read string|null $default_permissions Comma-separated default permissions to use when creating accounts
  */
 class Configuration extends DataSet
 {
@@ -20,6 +21,7 @@ class Configuration extends DataSet
         return new Rules([
             'username' => ['required', 'string', 'min:3'],
             'password' => ['required', 'string', 'min:6'],
+            'default_permissions' => ['nullable', 'array'],
         ]);
     }
 }
