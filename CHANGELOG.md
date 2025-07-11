@@ -2,6 +2,14 @@
 
 All notable changes to the package will be documented in this file.
 
+## v2.10.0 - 2025-07-11
+
+- Update Duda create() to create or re-use a duda account
+- Update Duda's AccountInfo result data set to include permissions
+- Update Duda changePackage() to sync permissions
+- Update Duda unsuspend() to skip free sites
+- Update Duda terminate() to suspend by default unless configured to delete
+
 ## v2.9.0 - 2025-07-03
 
 - Implement Duda provider
