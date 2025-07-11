@@ -218,9 +218,15 @@ class Provider extends Category implements ProviderInterface
     public function terminate(AccountIdentifier $params): ResultData
     {
         try {
+            if (!$this->configuration->delete_on_terminate) {
+                $suspendResult = $this->suspend($params);
+
+                return $this->okResult($suspendResult->getMessage());
+            }
+
             $this->api()->terminate((string)$params->account_reference);
 
-            return $this->okResult('Account Terminated');
+            return $this->okResult('Site deleted');
         } catch (\Throwable $e) {
             $this->handleException($e, $params);
         }

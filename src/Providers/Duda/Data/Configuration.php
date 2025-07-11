@@ -13,6 +13,7 @@ use Upmind\ProvisionBase\Provider\DataSet\Rules;
  * @property-read string $username username
  * @property-read string $password password
  * @property-read string|null $default_permissions Comma-separated default permissions to use when creating accounts
+ * @property-read bool|null $delete_on_terminate Whether to delete the account on termination
  */
 class Configuration extends DataSet
 {
@@ -22,6 +23,7 @@ class Configuration extends DataSet
             'username' => ['required', 'string', 'min:3'],
             'password' => ['required', 'string', 'min:6'],
             'default_permissions' => ['nullable', 'array'],
+            'delete_on_terminate' => ['boolean'],
         ]);
     }
 }
