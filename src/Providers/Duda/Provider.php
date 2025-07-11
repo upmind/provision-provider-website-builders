@@ -157,9 +157,16 @@ class Provider extends Category implements ProviderInterface
     public function suspend(AccountIdentifier $params): AccountInfo
     {
         try {
+            $info = $this->getAccountInfo($params->site_builder_user_id, (string)$params->account_reference);
+
+            if (isset($info->is_published) && (bool)$info->is_published === false) {
+                return $info->setMessage('Account already unpublished');
+            }
+
             $this->api()->suspend((string)$params->account_reference);
 
-            return $this->getAccountInfo($params->site_builder_user_id, (string)$params->account_reference, 'Account suspended');
+            return $info->setIsPublished(false)
+                ->setMessage('Account suspended/unpublished');
         } catch (\Throwable $e) {
             $this->handleException($e, $params);
         }
@@ -172,9 +179,22 @@ class Provider extends Category implements ProviderInterface
     public function unSuspend(UnSuspendParams $params): AccountInfo
     {
         try {
+            $info = $this->getAccountInfo($params->site_builder_user_id, (string)$params->account_reference);
+
+            if (strtoupper($info->package_reference) === 'FREE') {
+                // Unsuspend is really a republish
+                // For free sites this causes an implicit upgrade plan which is undesirable
+                return $info->setMessage('Free sites cannot be unsuspended/republished');
+            }
+
+            if (isset($info->is_published) && (bool)$info->is_published === true) {
+                return $info->setMessage('Account already unsuspended/republished');
+            }
+
             $this->api()->unsuspend((string)$params->account_reference);
 
-            return $this->getAccountInfo($params->site_builder_user_id, (string)$params->account_reference, 'Account unsuspended');
+            return $info->setIsPublished(true)
+                ->setMessage('Account unsuspended/republished');
         } catch (\Throwable $e) {
             $this->handleException($e, $params);
         }
