@@ -22,7 +22,7 @@ class Configuration extends DataSet
         return new Rules([
             'username' => ['required', 'string', 'min:3'],
             'password' => ['required', 'string', 'min:6'],
-            'default_permissions' => ['nullable', 'array'],
+            'default_permissions' => ['nullable', 'string'],
             'delete_on_terminate' => ['boolean'],
         ]);
     }
