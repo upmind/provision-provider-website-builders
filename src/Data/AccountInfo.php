@@ -18,6 +18,7 @@ use Upmind\ProvisionBase\Provider\DataSet\Rules;
  * @property-read string|null $ip_address
  * @property-read bool|null $is_published
  * @property-read bool|null $has_ssl
+ * @property-read string|null $permissions Comma-separated list of permissions, e.g. `PUBLISH,EDIT`
  * @property-read array|null $extra
  */
 class AccountInfo extends ResultData
@@ -35,6 +36,7 @@ class AccountInfo extends ResultData
             'ip_address' => ['nullable', 'ip'],
             'is_published' => ['nullable', 'bool'],
             'has_ssl' => ['nullable', 'bool'],
+            'permissions' => ['nullable', 'string'],
             'extra' => ['nullable', 'array'],
         ]);
     }
