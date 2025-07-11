@@ -123,8 +123,8 @@ class Provider extends Category implements ProviderInterface
     public function login(AccountIdentifier $params): LoginResult
     {
         try {
-            if (!isset($params->site_builder_user_id)) {
-                $this->errorResult('Site builder user id is required!');
+            if (empty($params->site_builder_user_id)) {
+                $this->errorResult('Site builder user id is required');
             }
 
             $url = $this->api()->login((string)$params->site_builder_user_id, (string)$params->account_reference);
@@ -142,7 +142,18 @@ class Provider extends Category implements ProviderInterface
     public function changePackage(ChangePackageParams $params): AccountInfo
     {
         try {
-            $this->api()->changePackage((string)$params->account_reference, $params->package_reference);
+            if (empty($params->site_builder_user_id)) {
+                $this->errorResult('Site builder user id is required');
+            }
+
+            $plan = $this->api()->getPlan((string)$params->package_reference);
+
+            $this->api()->changePackage(
+                (string)$params->site_builder_user_id,
+                (string)$params->account_reference,
+                $plan['planId'],
+                $this->getPermissions($params->permissions, $plan['planName'])
+            );
 
             return $this->getAccountInfo($params->site_builder_user_id, (string)$params->account_reference, 'Package changed');
         } catch (Throwable $e) {
