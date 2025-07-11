@@ -58,7 +58,7 @@ class Provider extends Category implements ProviderInterface
 
             $siteId = $this->api()->createSite((string)$params->domain_name, (string)$params->package_reference, $params->language_code ?? 'en');
 
-            return $this->getAccountInfo($siteId, 'Website created');
+            return $this->getAccountInfo($params->site_builder_user_id, $siteId, 'Website created');
         } catch (\Throwable $e) {
             $this->handleException($e, $params);
         }
@@ -71,7 +71,7 @@ class Provider extends Category implements ProviderInterface
     public function getInfo(AccountIdentifier $params): AccountInfo
     {
         try {
-            return $this->getAccountInfo((string)$params->account_reference);
+            return $this->getAccountInfo($params->site_builder_user_id, (string)$params->account_reference);
         } catch (\Throwable $e) {
             $this->handleException($e, $params);
         }
@@ -80,9 +80,13 @@ class Provider extends Category implements ProviderInterface
     /**
      * @throws \GuzzleHttp\Exception\GuzzleException
      */
-    private function getAccountInfo(string $siteId, ?string $message = null): AccountInfo
+    private function getAccountInfo(?string $siteBuilderUserId, string $siteId, ?string $message = null): AccountInfo
     {
-        $accountInfo = $this->api()->getInfo($siteId);
+        if (empty($siteBuilderUserId)) {
+            $this->errorResult('Site builder user id is required');
+        }
+
+        $accountInfo = $this->api()->getInfo($siteBuilderUserId, $siteId);
 
         return AccountInfo::create($accountInfo)->setMessage($message ?: 'Account data obtained');
     }
@@ -115,7 +119,7 @@ class Provider extends Category implements ProviderInterface
         try {
             $this->api()->changePackage((string)$params->account_reference, $params->package_reference);
 
-            return $this->getAccountInfo((string)$params->account_reference, 'Package changed');
+            return $this->getAccountInfo($params->site_builder_user_id, (string)$params->account_reference, 'Package changed');
         } catch (Throwable $e) {
             $this->handleException($e);
         }
@@ -130,7 +134,7 @@ class Provider extends Category implements ProviderInterface
         try {
             $this->api()->suspend((string)$params->account_reference);
 
-            return $this->getAccountInfo((string)$params->account_reference, 'Account suspended');
+            return $this->getAccountInfo($params->site_builder_user_id, (string)$params->account_reference, 'Account suspended');
         } catch (\Throwable $e) {
             $this->handleException($e, $params);
         }
@@ -145,7 +149,7 @@ class Provider extends Category implements ProviderInterface
         try {
             $this->api()->unsuspend((string)$params->account_reference);
 
-            return $this->getAccountInfo((string)$params->account_reference, 'Account unsuspended');
+            return $this->getAccountInfo($params->site_builder_user_id, (string)$params->account_reference, 'Account unsuspended');
         } catch (\Throwable $e) {
             $this->handleException($e, $params);
         }

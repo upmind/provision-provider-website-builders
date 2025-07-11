@@ -71,23 +71,36 @@ class DudaApi
      * @return array Site info
      * @throws GuzzleException
      */
-    public function getInfo(string $siteId): array
+    public function getInfo(string $accountName, string $siteId): array
     {
+        $account = $this->getAccountData($accountName);
         $site = $this->makeRequest("sites/multiscreen/$siteId");
         $plan = $this->makeRequest("sites/multiscreen/$siteId/plan");
+        $permissions = $this->makeRequest("accounts/{$accountName}/sites/{$siteId}/permissions");
 
         $isPublished = $site['publish_status'] == 'PUBLISHED';
 
         return [
-            'site_builder_user_id' => $site['account_name'],
+            'site_builder_user_id' => $account['account_name'],
             'account_reference' => $siteId,
-            'domain_name' => $site['site_domain'],
+            'domain_name' => $site['site_domain'] ?? $site['site_default_domain'],
             'package_reference' => $plan['planName'] ?? "unknown",
-            'suspended' => !$isPublished,
+            'suspended' => null, // Duda API does not explicitly support suspension - uses is_published instead
             'ip_address' => null,
             'is_published' => $isPublished,
             'has_ssl' => null,
+            'permissions' => implode(',', $permissions['permissions'] ?? []),
         ];
+    }
+
+    /**
+     * Get information about the given account identifier.
+     *
+     * @link https://developer.duda.co/reference/accounts-object
+     */
+    public function getAccountData(string $accountName): array
+    {
+        return $this->makeRequest("accounts/$accountName");
     }
 
     /**
@@ -182,6 +195,20 @@ class DudaApi
         $this->changePlan($siteId, (int)$planId);
 
         return $siteId;
+    }
+
+    /**
+     * List the permissions of the given user for the given site.
+     *
+     * @return string[]
+     *
+     * @link https://developer.duda.co/reference/client-permissions-get-client-permissions
+     */
+    public function getSitePermissions(string $siteId, string $accountName): array
+    {
+        $response = $this->makeRequest("accounts/{$accountName}/sites/{$siteId}/permissions");
+
+        return $response['permissions'] ?? [];
     }
 
     /**
