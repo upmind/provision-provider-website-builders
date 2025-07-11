@@ -285,7 +285,7 @@ class Provider extends Category implements ProviderInterface
 
             $this->errorResult(
                 sprintf('Provider API Error: %s', $errorMessage),
-                ['response_data' => $responseData],
+                ['response_data' => $responseData ?? Str::limit($body, 300)],
                 [],
                 $e
             );
