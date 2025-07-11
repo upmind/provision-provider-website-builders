@@ -46,4 +46,10 @@ class AccountInfo extends ResultData
         $this->setValue('suspended', $suspended);
         return $this;
     }
+
+    public function setIsPublished(bool $isPublished): self
+    {
+        $this->setValue('is_published', $isPublished);
+        return $this;
+    }
 }
