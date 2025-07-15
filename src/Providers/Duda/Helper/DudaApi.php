@@ -3,9 +3,11 @@
 namespace Upmind\ProvisionProviders\WebsiteBuilders\Providers\Duda\Helper;
 
 use GuzzleHttp\Client;
+use GuzzleHttp\Exception\ClientException;
 use GuzzleHttp\Exception\GuzzleException;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
+use Throwable;
 use Upmind\ProvisionProviders\WebsiteBuilders\Providers\Duda\Data\Configuration;
 use Upmind\ProvisionBase\Exception\ProvisionFunctionError;
 
@@ -200,10 +202,20 @@ class DudaApi
     {
         $query = [
             'site_name' => $siteId,
-            'target' => 'EDITOR',
+            'target' => $this->configuration->sso_target_destination ?: 'EDITOR',
         ];
 
-        $response = $this->makeRequest("accounts/sso/$userId/link", $query);
+        try {
+            $response = $this->makeRequest("accounts/sso/$userId/link", $query);
+        } catch (ClientException $e) {
+            if (!$this->configuration->sso_target_destination || !Str::contains($e->getMessage(), $this->configuration->sso_target_destination)) {
+                throw $e;
+            }
+
+            // Try again without the custom target destination
+            $query['target'] = 'EDITOR';
+            $response = $this->makeRequest("accounts/sso/$userId/link", $query);
+        }
 
         return $response['url'];
     }
