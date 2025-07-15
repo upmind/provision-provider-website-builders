@@ -2,6 +2,10 @@
 
 All notable changes to the package will be documented in this file.
 
+## v2.5.8 - 2025-07-15
+
+- Update Duda login() to use the new `sso_target_destination` configuration property
+
 ## v2.5.7 - 2025-07-11
 
 - Fix DudaApi::getSupportedLanguage() use of Str::replace() for older laravel versions
