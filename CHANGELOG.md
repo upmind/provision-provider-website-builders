@@ -2,6 +2,10 @@
 
 All notable changes to the package will be documented in this file.
 
+## v2.12.0 - 2025-07-17
+
+- Update Duda create() to use the new `template` configuration property if set
+
 ## v2.11.0 - 2025-07-15
 
 - Update Duda login() to use the new `sso_target_destination` configuration property
