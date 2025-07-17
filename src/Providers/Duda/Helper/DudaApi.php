@@ -92,6 +92,29 @@ class DudaApi
     }
 
     /**
+     * Get template data by the given template name or ID.
+     *
+     * @link https://developer.duda.co/reference/templates-list-templates
+     */
+    public function getTemplate(string $template): array
+    {
+        $templates = $this->makeRequest('sites/multiscreen/templates');
+
+        foreach ($templates as $t) {
+            if (is_numeric($template) && (int)$t['template_id'] === (int)$template) {
+                return $t;
+            }
+
+            if (strtolower($t['template_name']) === strtolower($template)) {
+                return $t;
+            }
+        }
+
+        throw ProvisionFunctionError::create("Template '$template' not found")
+            ->withData(['response' => $templates]);
+    }
+
+    /**
      * @param string $siteId
      * @return array Site info
      * @throws GuzzleException
@@ -236,6 +259,7 @@ class DudaApi
      * @param integer $planId
      * @param string|null $lang
      * @param string[] $permissions
+     * @param int|null $templateId
      *
      * @return string Site id
      *
@@ -248,7 +272,8 @@ class DudaApi
         string $domain,
         int $planId,
         ?string $lang,
-        array $permissions
+        array $permissions,
+        ?int $templateId
     ): string {
         $body = [
             'template_id' => 0,
@@ -260,6 +285,12 @@ class DudaApi
 
         $site = $this->makeRequest("sites/multiscreen/create", null, $body, 'POST');
         $siteId = $site['site_name'];
+
+        if ($templateId) {
+            $this->makeRequest('sites/multiscreen/switchTemplate/' . $siteId, null, [
+                'template_id' => $templateId,
+            ], 'POST');
+        }
 
         $this->setSitePermissions($siteId, $accountName, $permissions);
 
