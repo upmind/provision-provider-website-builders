@@ -67,6 +67,10 @@ class Provider extends Category implements ProviderInterface
 
             $plan = $this->api()->getPlan((string)$params->package_reference);
 
+            if ($this->configuration->template) {
+                $template = $this->api()->getTemplate((string)$this->configuration->template);
+            }
+
             $account = $params->site_builder_user_id
                 ? $this->api()->getAccountData((string)$params->site_builder_user_id)
                 : $this->api()->createAccount(
@@ -80,7 +84,8 @@ class Provider extends Category implements ProviderInterface
                 (string)$params->domain_name,
                 $plan['planId'],
                 $params->language_code,
-                $this->getPermissions($params->permissions, $plan['planName'])
+                $this->getPermissions($params->permissions, $plan['planName']),
+                $template['template_id'] ?? null
             );
 
             return $this->getAccountInfo($account['account_name'], $siteId, 'Website created');
