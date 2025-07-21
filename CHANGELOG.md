@@ -2,6 +2,11 @@
 
 All notable changes to the package will be documented in this file.
 
+## v2.5.10 - 2025-07-21
+
+- Update Duda createSite() to not automatically publish upon create
+- Fix Duda createSite() language normalisation
+
 ## v2.5.9 - 2025-07-17
 
 - Update Duda create() to use the new `template` configuration property if set
