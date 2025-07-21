@@ -277,7 +277,7 @@ class DudaApi
     ): string {
         $body = [
             'template_id' => 0,
-            'lang' => $lang,
+            'lang' => $this->getSupportedLanguage($lang),
             'site_data' => [
                 'site_domain' => $domain
             ],
@@ -294,7 +294,6 @@ class DudaApi
 
         $this->setSitePermissions($siteId, $accountName, $permissions);
 
-        $this->unsuspend($siteId);
         $this->changePlan($siteId, $planId);
 
         return $siteId;
