@@ -223,15 +223,21 @@ class DudaApi
      */
     public function login(string $userId, string $siteId): string
     {
+        $publishStatus = $this->makeRequest("sites/multiscreen/$siteId")['publish_status'];
+
+        $target = $publishStatus === 'NOT_PUBLISHED_YET'
+            ? $this->configuration->unpublished_sso_target_destination // site has never been published
+            : $this->configuration->published_sso_target_destination; // site has been published before
+
         $query = [
             'site_name' => $siteId,
-            'target' => $this->configuration->sso_target_destination ?: 'EDITOR',
+            'target' => $target ?: 'EDITOR',
         ];
 
         try {
             $response = $this->makeRequest("accounts/sso/$userId/link", $query);
         } catch (ClientException $e) {
-            if (!$this->configuration->sso_target_destination || !Str::contains($e->getMessage(), $this->configuration->sso_target_destination)) {
+            if (!$target || !Str::contains($e->getMessage(), $target)) {
                 throw $e;
             }
 
