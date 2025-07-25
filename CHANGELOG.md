@@ -2,6 +2,10 @@
 
 All notable changes to the package will be documented in this file.
 
+## v2.5.11 - 2025-07-24
+
+- Update Duda configuration to split `sso_target_destination` into `unpublished_sso_target_destination` and `published_sso_target_destination`
+
 ## v2.5.10 - 2025-07-21
 
 - Update Duda createSite() to not automatically publish upon create
