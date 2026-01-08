@@ -225,11 +225,24 @@ class DudaApi
      */
     public function login(string $userId, string $siteId): string
     {
-        $publishStatus = $this->makeRequest("sites/multiscreen/$siteId")['publish_status'];
+        // First get the site template, and if it's -1, force the target to EDITOR
+        $siteInfo = $this->makeRequest("sites/multiscreen/$siteId");
 
+        // If nothing is set, assume NOT_PUBLISHED_YET
+        $publishStatus = $siteInfo['publish_status'] ?? 'NOT_PUBLISHED_YET';
+        $templateId = isset($siteInfo['template_id']) ? (string) $siteInfo['template_id'] : null;
+
+        // Selective SSO target link based on publish status
         $target = $publishStatus === 'NOT_PUBLISHED_YET'
             ? $this->configuration->unpublished_sso_target_destination // site has never been published
             : $this->configuration->published_sso_target_destination; // site has been published before
+
+        // However, if a user has finished the site creation flow but not published yet,
+        // Template ID will be -1,
+        // And we don't want to take them back to the creation flow, so we force EDITOR
+        if ($publishStatus === 'NOT_PUBLISHED_YET' && $templateId === '-1') {
+            $target = 'EDITOR';
+        }
 
         $query = [
             'site_name' => $siteId,
