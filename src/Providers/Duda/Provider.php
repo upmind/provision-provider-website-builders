@@ -6,7 +6,6 @@ namespace Upmind\ProvisionProviders\WebsiteBuilders\Providers\Duda;
 
 use GuzzleHttp\Client;
 use GuzzleHttp\Exception\RequestException;
-use GuzzleHttp\Exception\TransferException;
 use GuzzleHttp\RequestOptions;
 use Illuminate\Support\Str;
 use Throwable;
@@ -89,7 +88,7 @@ class Provider extends Category implements ProviderInterface
             );
 
             return $this->getAccountInfo($account['account_name'], $siteId, 'Website created');
-        } catch (\Throwable $e) {
+        } catch (Throwable $e) {
             $this->handleException($e, $params);
         }
     }

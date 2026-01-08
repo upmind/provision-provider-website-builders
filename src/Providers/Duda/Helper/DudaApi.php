@@ -94,6 +94,8 @@ class DudaApi
     /**
      * Get template data by the given template name or ID.
      *
+     * @throws GuzzleException
+     *
      * @link https://developer.duda.co/reference/templates-list-templates
      */
     public function getTemplate(string $template): array
@@ -126,7 +128,7 @@ class DudaApi
         $plan = $this->makeRequest("sites/multiscreen/$siteId/plan");
         $permissions = $this->makeRequest("accounts/{$accountName}/sites/{$siteId}/permissions");
 
-        $isPublished = $site['publish_status'] == 'PUBLISHED';
+        $isPublished = $site['publish_status'] === 'PUBLISHED';
 
         return [
             'site_builder_user_id' => $account['account_name'],
@@ -282,21 +284,19 @@ class DudaApi
         ?int $templateId
     ): string {
         $body = [
-            'template_id' => 0,
+            'template_id' => $templateId,
             'lang' => $this->getSupportedLanguage($lang),
             'site_data' => [
                 'site_domain' => $domain
             ],
         ];
 
+        if ($templateId === null) {
+            unset($body['template_id']);
+        }
+
         $site = $this->makeRequest("sites/multiscreen/create", null, $body, 'POST');
         $siteId = $site['site_name'];
-
-        if ($templateId) {
-            $this->makeRequest('sites/multiscreen/switchTemplate/' . $siteId, null, [
-                'template_id' => $templateId,
-            ], 'POST');
-        }
 
         $this->setSitePermissions($siteId, $accountName, $permissions);
 
