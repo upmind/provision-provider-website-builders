@@ -2,6 +2,11 @@
 
 All notable changes to the package will be documented in this file.
 
+## v2.13.1 - 2026-01-13
+
+- Update Duda Provider to use provided template ID on create, or none, instead of switching template after create
+- Update Duda Provider login to redirect user to the editor screen if site has been created but not published. Otherwise, the user was starting the flow from the beginning.
+
 ## v2.13.0 - 2025-07-24
 
 - Update Duda configuration to split `sso_target_destination` into `unpublished_sso_target_destination` and `published_sso_target_destination`
