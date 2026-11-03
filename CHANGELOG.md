@@ -7,6 +7,7 @@ All notable changes to the package will be documented in this file.
 - Update for PHP 8.3+ and base library v5; support PHP 8.3, 8.4 and 8.5
 - Update dev dependency `phpstan/phpstan` to ^2.0
 - Update API exception handlers to read error responses from Guzzle 8 `ResponseException`
+- Update BaseKit exception handler to map all Guzzle 8 `NetworkException` failures, including read timeouts, to a connection error
 - Fix Yola request header values to be strings for Guzzle 8
 
 ## v2.13.1 - 2026-01-13

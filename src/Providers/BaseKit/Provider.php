@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Upmind\ProvisionProviders\WebsiteBuilders\Providers\BaseKit;
 
 use GuzzleHttp\Client;
-use GuzzleHttp\Exception\ConnectException;
+use GuzzleHttp\Exception\NetworkException;
 use GuzzleHttp\Exception\ResponseException;
 use GuzzleHttp\RequestOptions;
 use Illuminate\Support\Str;
@@ -441,7 +441,7 @@ class Provider extends Category implements ProviderInterface
             );
         }
 
-        if ($e instanceof ConnectException) {
+        if ($e instanceof NetworkException) {
             $this->errorResult('Provider API Connection Error', [], [], $e);
         }
 
