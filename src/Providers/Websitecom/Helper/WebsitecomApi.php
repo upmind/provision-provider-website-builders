@@ -88,12 +88,8 @@ class WebsitecomApi
      */
     public function createUser(CreateParams $params): array
     {
-        @[$firstName, $lastName] = explode(' ', $params->customer_name, 2);
+        [$firstName, $lastName] = array_pad(explode(' ', $params->customer_name, 2), 2, null);
 
-        /**
-         * @var string $firstName
-         * @var string|null $lastName
-         */
         $body = [
             'clientId' => $params->site_builder_user_id ?: 0,
             'domainName' => $params->domain_name,

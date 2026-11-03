@@ -43,12 +43,12 @@ class YolaApi
         } else {
             $contentType = "application/json;charset=utf-8";
             $baseString = $method . "\n" . md5($requestParams['body']) . "\n" . $contentType . "\n" . $expiry . "\n";
-            $requestParams['headers']['Content-Length'] = strlen($requestParams['body']);
+            $requestParams['headers']['Content-Length'] = (string)strlen($requestParams['body']);
         }
         $signature = base64_encode(hash_hmac('sha1', $baseString, $authKey, true));
 
         $requestParams['headers']['Content-Type'] = $contentType;
-        $requestParams['headers']['SBS-Expires'] = $expiry;
+        $requestParams['headers']['SBS-Expires'] = (string)$expiry;
         $requestParams['headers']['SBS-Signature'] = $signature;
 
         $response = $this->client->request($method, "/{$this->configuration->brand_id}" . $command, $requestParams);
@@ -85,12 +85,8 @@ class YolaApi
      */
     public function createUser(CreateParams $params): string
     {
-        @[$firstName, $lastName] = explode(' ', $params->customer_name, 2);
+        [$firstName, $lastName] = array_pad(explode(' ', $params->customer_name, 2), 2, null);
 
-        /**
-         * @var string $firstName
-         * @var string|null $lastName
-         */
         $body = [
             'userID' => $params->customer_id ?? null,
             'domain' => $params->domain_name,
