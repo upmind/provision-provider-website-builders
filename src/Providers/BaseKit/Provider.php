@@ -6,7 +6,7 @@ namespace Upmind\ProvisionProviders\WebsiteBuilders\Providers\BaseKit;
 
 use GuzzleHttp\Client;
 use GuzzleHttp\Exception\ConnectException;
-use GuzzleHttp\Exception\RequestException;
+use GuzzleHttp\Exception\ResponseException;
 use GuzzleHttp\RequestOptions;
 use Illuminate\Support\Str;
 use Psr\Http\Message\ResponseInterface;
@@ -241,12 +241,8 @@ class Provider extends Category implements ProviderInterface
      */
     public function createUser(CreateParams $params): int
     {
-        @[$firstName, $lastName] = explode(' ', $params->customer_name, 2);
+        [$firstName, $lastName] = array_pad(explode(' ', $params->customer_name, 2), 2, null);
 
-        /**
-         * @var string $firstName
-         * @var string|null $lastName
-         */
         $response = $this->client()->post('/users', [
             RequestOptions::JSON => [
                 'brandRef' => $this->configuration->brand_ref,
@@ -402,7 +398,7 @@ class Provider extends Category implements ProviderInterface
      */
     public function handleException(Throwable $e): void
     {
-        if (($e instanceof RequestException) && $e->hasResponse()) {
+        if ($e instanceof ResponseException) {
             /** @var \Psr\Http\Message\ResponseInterface $response response not null evaluated at this point */
             $response = $e->getResponse();
             $httpCode = $response->getStatusCode();

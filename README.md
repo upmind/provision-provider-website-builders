@@ -4,6 +4,7 @@
 
 This provision category contains the common functions used in provisioning flows for website builders and related tools.
 
+- [Requirements](#requirements)
 - [Installation](#installation)
 - [Usage](#usage)
   - [Quick-start](#quick-start)
@@ -21,6 +22,11 @@ This provision category contains the common functions used in provisioning flows
 - [Credits](#credits)
 - [License](#license)
 - [Upmind](#upmind)
+
+## Requirements
+
+- PHP 8.3, 8.4 or 8.5
+- [upmind/provision-provider-base](https://packagist.org/packages/upmind/provision-provider-base) v5
 
 ## Installation
 

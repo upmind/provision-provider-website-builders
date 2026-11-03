@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Upmind\ProvisionProviders\WebsiteBuilders\Providers\ToplineYola;
 
 use GuzzleHttp\Client;
-use GuzzleHttp\Exception\RequestException;
+use GuzzleHttp\Exception\ResponseException;
 use GuzzleHttp\Exception\TransferException;
 use GuzzleHttp\RequestOptions;
 use Throwable;
@@ -220,9 +220,9 @@ class Provider extends Category implements ProviderInterface
                 'message' => $e->getMessage(),
             ];
 
-            if (($e instanceof RequestException) && $e->hasResponse()) {
+            if ($e instanceof ResponseException) {
                 $response = $e->getResponse();
-                $body = trim($response === null ? '' : $response->getBody()->__toString());
+                $body = trim($response->getBody()->__toString());
                 $responseData = json_decode($body, true);
 
                 $errorMessage = 'Provider API Error';
@@ -266,7 +266,7 @@ class Provider extends Category implements ProviderInterface
             'base_uri' => $this->resolveAPIURL(),
             RequestOptions::HEADERS => [
                 'User-Agent' => 'upmind/provision-provider-website-builders v1.0',
-                'SBS-AgentID' => $this->configuration->agent_id ?? null
+                'SBS-AgentID' => $this->configuration->agent_id ?? ''
             ],
             RequestOptions::TIMEOUT => 30, // seconds
             RequestOptions::CONNECT_TIMEOUT => 5, // seconds

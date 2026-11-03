@@ -10,12 +10,12 @@
         }
     ],
     "require": {
-        "php": "8.1 - 8.3",
-        "upmind/provision-provider-base": "^4.0",
+        "php": "^8.3",
+        "upmind/provision-provider-base": "dev-feature/base-v5-support as 5.0.0",
         "ext-json": "*"
     },
     "require-dev": {
-        "phpstan/phpstan": "^1.10"
+        "phpstan/phpstan": "^2.0"
     },
     "autoload": {
         "psr-4": {

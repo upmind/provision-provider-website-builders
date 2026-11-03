@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Upmind\ProvisionProviders\WebsiteBuilders\Providers\Weebly;
 
 use GuzzleHttp\Client;
-use GuzzleHttp\Exception\RequestException;
+use GuzzleHttp\Exception\ResponseException;
 use GuzzleHttp\Exception\TransferException;
 use GuzzleHttp\RequestOptions;
 use Illuminate\Support\Str;
@@ -215,10 +215,10 @@ class Provider extends Category implements ProviderInterface
      */
     protected function handleException(\Throwable $e, $params = null): void
     {
-        if (($e instanceof RequestException) && $e->hasResponse()) {
+        if ($e instanceof ResponseException) {
             $response = $e->getResponse();
 
-            $body = trim($response === null ? '' : $response->getBody()->__toString());
+            $body = trim($response->getBody()->__toString());
             $responseData = json_decode($body, true);
 
             $errorMessage = $responseData["error"]['message'] ?? $response->getReasonPhrase();
