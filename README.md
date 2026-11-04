@@ -44,6 +44,7 @@ Alternatively you can start using it for your business immediately with [Upmind.
 
 The following providers are currently implemented:
   - [BaseKit](https://apidocs.basekit.com/api/integration-guide/#api-method-overview)
+  - [BrandForge](https://api-docs.brandforge.com/provisioning-api)
   - [Duda](https://developer.duda.co/docs/partner-api-introduction)
   - [Website.com](https://www.website.com/)
   - [Weebly](https://www.weebly.com/)
