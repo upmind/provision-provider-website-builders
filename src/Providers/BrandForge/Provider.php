@@ -27,7 +27,8 @@ use Upmind\ProvisionProviders\WebsiteBuilders\Providers\BrandForge\Helper\BrandF
  *
  * One BrandForge account per customer holds one plan per order.
  * `site_builder_user_id` is the account `service_id`. `account_reference` is the order's `plan_code`.
- * The API identifies a plan only by `plan_code`, so a customer can hold each plan once.
+ * The per-plan endpoints identify a plan only by `plan_code`, so this provider allows each plan once per customer.
+ * Lifecycle functions act on the whole account when it holds one plan, and on the order's plan otherwise.
  */
 class Provider extends Category implements ProviderInterface
 {
@@ -95,7 +96,7 @@ class Provider extends Category implements ProviderInterface
                 ]);
             }
 
-            $this->api()->addPlan($serviceId, $planCode);
+            $this->api()->addPlan($serviceId, $planCode, (string)$params->customer_id);
 
             return $this->getAccountInfo($serviceId, $planCode, 'Plan added to existing account');
         } catch (Throwable $e) {
@@ -188,6 +189,12 @@ class Provider extends Category implements ProviderInterface
             $serviceId = $this->getServiceId($params->site_builder_user_id);
             $planCode = (string)$params->account_reference;
 
+            if ($this->isOnlyPlan($serviceId, $planCode)) {
+                $this->api()->suspendAccount($serviceId);
+
+                return $this->getAccountInfo($serviceId, $planCode, 'Account suspended', true);
+            }
+
             $this->api()->suspendPlan($serviceId, $planCode);
 
             return $this->getAccountInfo($serviceId, $planCode, 'Plan suspended');
@@ -206,6 +213,12 @@ class Provider extends Category implements ProviderInterface
             $serviceId = $this->getServiceId($params->site_builder_user_id);
             $planCode = (string)$params->account_reference;
 
+            if ($this->isOnlyPlan($serviceId, $planCode)) {
+                $this->api()->unsuspendAccount($serviceId);
+
+                return $this->getAccountInfo($serviceId, $planCode, 'Account unsuspended');
+            }
+
             $this->api()->unsuspendPlan($serviceId, $planCode);
 
             return $this->getAccountInfo($serviceId, $planCode, 'Plan unsuspended');
@@ -215,7 +228,7 @@ class Provider extends Category implements ProviderInterface
     }
 
     /**
-     * Terminate the order's plan. The account and its other plans stay.
+     * Terminate the whole account if this is its only plan. Otherwise terminate the order's plan only.
      *
      * @throws \Upmind\ProvisionBase\Exception\ProvisionFunctionError
      * @throws \Throwable
@@ -223,10 +236,16 @@ class Provider extends Category implements ProviderInterface
     public function terminate(AccountIdentifier $params): ResultData
     {
         try {
-            $result = $this->api()->terminatePlan(
-                $this->getServiceId($params->site_builder_user_id),
-                (string)$params->account_reference
-            );
+            $serviceId = $this->getServiceId($params->site_builder_user_id);
+            $planCode = (string)$params->account_reference;
+
+            if ($this->isOnlyPlan($serviceId, $planCode)) {
+                $result = $this->api()->terminateAccount($serviceId);
+
+                return $this->okResult('Account terminated', [], ['response_data' => $result]);
+            }
+
+            $result = $this->api()->terminatePlan($serviceId, $planCode);
 
             return $this->okResult('Plan terminated', [], ['response_data' => $result]);
         } catch (Throwable $e) {
@@ -235,15 +254,18 @@ class Provider extends Category implements ProviderInterface
     }
 
     /**
+     * @param bool $accountSuspended Skip the plan lookup, which needs SSO, and report the account as suspended
+     *
      * @throws \GuzzleHttp\Exception\GuzzleException
      * @throws \Upmind\ProvisionBase\Exception\ProvisionFunctionError
      */
     protected function getAccountInfo(
         string $serviceId,
         string $planCode,
-        string $message = 'Account data obtained'
+        string $message = 'Account data obtained',
+        bool $accountSuspended = false
     ): AccountInfo {
-        $plan = $this->findPlan($this->getPlans($serviceId), $planCode);
+        $plan = $accountSuspended ? [] : $this->findPlan($this->getPlans($serviceId), $planCode);
 
         if ($plan === null) {
             $this->errorResult('Plan not found on this account', [
@@ -258,7 +280,7 @@ class Provider extends Category implements ProviderInterface
             'account_reference' => $planCode,
             'domain_name' => null,
             'package_reference' => $planCode,
-            'suspended' => strtolower((string)($plan['status'] ?? '')) === 'suspended',
+            'suspended' => $accountSuspended || strtolower((string)($plan['status'] ?? '')) === 'suspended',
             'site_count' => isset($status['workspaces']['total']) ? (int)$status['workspaces']['total'] : null,
             'extra' => [
                 'plan' => [
@@ -295,6 +317,25 @@ class Provider extends Category implements ProviderInterface
             fn ($plan) => is_array($plan)
                 && !in_array(strtolower((string)($plan['status'] ?? '')), self::ENDED_PLAN_STATUSES, true)
         ));
+    }
+
+    /**
+     * Whether the given plan is the account's only plan.
+     *
+     * @throws \GuzzleHttp\Exception\GuzzleException
+     * @throws \Upmind\ProvisionBase\Exception\ProvisionFunctionError
+     */
+    protected function isOnlyPlan(string $serviceId, string $planCode): bool
+    {
+        $plans = $this->getPlans($serviceId);
+
+        if ($this->findPlan($plans, $planCode) === null) {
+            $this->errorResult('Plan not found on this account', [
+                'plan_code' => $planCode,
+            ]);
+        }
+
+        return count($plans) === 1;
     }
 
     /**
@@ -354,6 +395,7 @@ class Provider extends Category implements ProviderInterface
             'plan_code' => $planCode,
             'password' => $params->password,
             'domain' => $params->domain_name,
+            'client_id' => (string)$params->customer_id,
         ], fn ($value) => $value !== null && $value !== '');
     }
 

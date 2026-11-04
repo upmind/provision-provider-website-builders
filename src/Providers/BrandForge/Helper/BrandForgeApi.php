@@ -57,12 +57,13 @@ class BrandForgeApi
      * @throws \GuzzleHttp\Exception\GuzzleException
      * @throws \Upmind\ProvisionBase\Exception\ProvisionFunctionError
      */
-    public function addPlan(string $serviceId, string $planCode): array
+    public function addPlan(string $serviceId, string $planCode, ?string $clientId = null): array
     {
-        return $this->request('POST', 'provision/add_plan', [], [
+        return $this->request('POST', 'provision/add_plan', [], array_filter([
             'service_id' => $serviceId,
             'plan_code' => $planCode,
-        ]);
+            'client_id' => $clientId,
+        ], fn ($value) => $value !== null));
     }
 
     /**
@@ -78,6 +79,51 @@ class BrandForgeApi
         return $this->request('POST', 'provision/change_package', [], [
             'service_id' => $serviceId,
             'plan_code' => $planCode,
+        ]);
+    }
+
+    /**
+     * Suspend the whole account.
+     *
+     * @return array<string, mixed>
+     *
+     * @throws \GuzzleHttp\Exception\GuzzleException
+     * @throws \Upmind\ProvisionBase\Exception\ProvisionFunctionError
+     */
+    public function suspendAccount(string $serviceId): array
+    {
+        return $this->request('POST', 'provision/suspend', [], [
+            'service_id' => $serviceId,
+        ]);
+    }
+
+    /**
+     * Reactivate the whole account.
+     *
+     * @return array<string, mixed>
+     *
+     * @throws \GuzzleHttp\Exception\GuzzleException
+     * @throws \Upmind\ProvisionBase\Exception\ProvisionFunctionError
+     */
+    public function unsuspendAccount(string $serviceId): array
+    {
+        return $this->request('POST', 'provision/unsuspend', [], [
+            'service_id' => $serviceId,
+        ]);
+    }
+
+    /**
+     * Cancel the whole account.
+     *
+     * @return array<string, mixed>
+     *
+     * @throws \GuzzleHttp\Exception\GuzzleException
+     * @throws \Upmind\ProvisionBase\Exception\ProvisionFunctionError
+     */
+    public function terminateAccount(string $serviceId): array
+    {
+        return $this->request('POST', 'provision/terminate', [], [
+            'service_id' => $serviceId,
         ]);
     }
 
