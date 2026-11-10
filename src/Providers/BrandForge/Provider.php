@@ -25,10 +25,11 @@ use Upmind\ProvisionProviders\WebsiteBuilders\Providers\BrandForge\Helper\BrandF
 /**
  * BrandForge provider.
  *
- * One BrandForge account per customer holds one plan per order.
+ * One customer has one BrandForge account with one plan, so one order.
  * `site_builder_user_id` is the account `service_id`. `account_reference` is the order's `plan_code`.
- * The per-plan endpoints identify a plan only by `plan_code`, so this provider allows each plan once per customer.
- * Lifecycle functions act on the whole account when it holds one plan, and on the order's plan otherwise.
+ * A second plan adds credits but does not change the account's active plan, so the provider refuses it.
+ * Lifecycle functions act on the whole account. If the account has more plans from elsewhere, they act on
+ * the order's plan only.
  */
 class Provider extends Category implements ProviderInterface
 {
@@ -60,7 +61,7 @@ class Provider extends Category implements ProviderInterface
     }
 
     /**
-     * Create an account, or add the plan to the customer's existing account.
+     * Create an account. Add the plan to an existing account only if that account has no plan.
      *
      * @throws \Upmind\ProvisionBase\Exception\ProvisionFunctionError
      * @throws \Throwable
@@ -89,10 +90,12 @@ class Provider extends Category implements ProviderInterface
                 // The API returned an existing account for this email, with a different plan.
             }
 
-            if ($this->findPlan($this->getPlans($serviceId), $planCode) !== null) {
-                $this->errorResult('Customer already has this plan; each plan can be added once per customer', [
+            $plans = $this->getPlans($serviceId);
+
+            if ($plans !== []) {
+                $this->errorResult('Customer already has a plan; change the existing plan instead', [
                     'site_builder_user_id' => $serviceId,
-                    'plan_code' => $planCode,
+                    'plan_codes' => array_column($plans, 'plan_code'),
                 ]);
             }
 
@@ -283,6 +286,7 @@ class Provider extends Category implements ProviderInterface
             'suspended' => $accountSuspended || strtolower((string)($plan['status'] ?? '')) === 'suspended',
             'site_count' => isset($status['workspaces']['total']) ? (int)$status['workspaces']['total'] : null,
             'extra' => [
+                'active_plan_code' => $status['package']['plan_code'] ?? null,
                 'plan' => [
                     'id' => $plan['id'] ?? null,
                     'status' => $plan['status'] ?? null,
