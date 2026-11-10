@@ -18,6 +18,8 @@ class BrandForgeApi
 {
     protected Client $client;
 
+    protected ?int $lastStatusCode = null;
+
     public function __construct(Client $client)
     {
         $this->client = $client;
@@ -35,7 +37,8 @@ class BrandForgeApi
     }
 
     /**
-     * Create an account. The API returns the existing account if the email is already in use by this reseller.
+     * Create an account. If the email already has an account, the API adds the plan to that account and returns
+     * HTTP 200 instead of 201. The response `plan_code` is then the account's primary plan, not the added plan.
      *
      * @param array<string, mixed> $data
      *
@@ -67,7 +70,7 @@ class BrandForgeApi
     }
 
     /**
-     * Replace the active plan of an account.
+     * Replace the account's plan. The API sets every other active plan to `inactive`.
      *
      * @return array<string, mixed>
      *
@@ -198,6 +201,14 @@ class BrandForgeApi
     }
 
     /**
+     * HTTP status code of the last response.
+     */
+    public function lastStatusCode(): ?int
+    {
+        return $this->lastStatusCode;
+    }
+
+    /**
      * Send a request and return the `data` property of the response envelope.
      *
      * @param array<string, mixed> $query
@@ -220,7 +231,9 @@ class BrandForgeApi
             $options[RequestOptions::JSON] = $body;
         }
 
+        $this->lastStatusCode = null;
         $response = $this->client->request($method, $path, $options);
+        $this->lastStatusCode = $response->getStatusCode();
         $responseBody = trim($response->getBody()->__toString());
         $result = json_decode($responseBody, true);
 

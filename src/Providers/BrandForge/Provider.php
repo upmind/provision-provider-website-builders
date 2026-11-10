@@ -25,11 +25,10 @@ use Upmind\ProvisionProviders\WebsiteBuilders\Providers\BrandForge\Helper\BrandF
 /**
  * BrandForge provider.
  *
- * One customer has one BrandForge account with one plan, so one order.
+ * One customer has one BrandForge account. Each order is one plan on that account.
  * `site_builder_user_id` is the account `service_id`. `account_reference` is the order's `plan_code`.
- * A second plan adds credits but does not change the account's active plan, so the provider refuses it.
- * Lifecycle functions act on the whole account. If the account has more plans from elsewhere, they act on
- * the order's plan only.
+ * The per-plan endpoints identify a plan only by `plan_code`, so the provider allows each plan once per customer.
+ * Lifecycle functions act on the whole account when it holds one plan, and on the order's plan otherwise.
  */
 class Provider extends Category implements ProviderInterface
 {
@@ -39,7 +38,7 @@ class Provider extends Category implements ProviderInterface
     /**
      * Plan statuses that mean the plan no longer belongs to the account.
      */
-    private const ENDED_PLAN_STATUSES = ['cancelled', 'canceled', 'terminated', 'deleted', 'expired'];
+    private const ENDED_PLAN_STATUSES = ['inactive', 'cancelled', 'canceled', 'terminated', 'deleted', 'expired'];
 
     protected Configuration $configuration;
 
@@ -61,7 +60,7 @@ class Provider extends Category implements ProviderInterface
     }
 
     /**
-     * Create an account. Add the plan to an existing account only if that account has no plan.
+     * Create an account, or add the plan to the customer's existing account.
      *
      * @throws \Upmind\ProvisionBase\Exception\ProvisionFunctionError
      * @throws \Throwable
@@ -72,34 +71,48 @@ class Provider extends Category implements ProviderInterface
             $planCode = $this->resolvePlanCode((string)$params->package_reference);
             $serviceId = empty($params->site_builder_user_id) ? null : (string)$params->site_builder_user_id;
 
-            if ($serviceId === null) {
-                $account = $this->api()->createAccount($this->getCreateAccountData($params, $planCode));
-
-                if (empty($account['service_id'])) {
-                    $this->errorResult('Account ID missing from Provider API response', [
-                        'response_data' => $account,
+            if ($serviceId !== null) {
+                if ($this->findPlan($this->getPlans($serviceId), $planCode) !== null) {
+                    $this->errorResult('Customer already has this plan', [
+                        'site_builder_user_id' => $serviceId,
+                        'plan_code' => $planCode,
                     ]);
                 }
 
-                $serviceId = (string)$account['service_id'];
+                $this->api()->addPlan($serviceId, $planCode, (string)$params->customer_id);
 
-                if (($account['plan_code'] ?? null) === $planCode) {
-                    return $this->getAccountInfo($serviceId, $planCode, 'Account created');
-                }
-
-                // The API returned an existing account for this email, with a different plan.
+                return $this->getAccountInfo($serviceId, $planCode, 'Plan added to existing account');
             }
 
-            $plans = $this->getPlans($serviceId);
+            $account = $this->api()->createAccount($this->getCreateAccountData($params, $planCode));
 
-            if ($plans !== []) {
-                $this->errorResult('Customer already has a plan; change the existing plan instead', [
-                    'site_builder_user_id' => $serviceId,
-                    'plan_codes' => array_column($plans, 'plan_code'),
+            if (empty($account['service_id'])) {
+                $this->errorResult('Account ID missing from Provider API response', [
+                    'response_data' => $account,
                 ]);
             }
 
-            $this->api()->addPlan($serviceId, $planCode, (string)$params->customer_id);
+            $serviceId = (string)$account['service_id'];
+
+            if ($this->api()->lastStatusCode() === 201) {
+                return $this->getAccountInfo($serviceId, $planCode, 'Account created');
+            }
+
+            // The email already had an account, and the API added the plan to it.
+            $copies = array_filter(
+                $this->getPlans($serviceId),
+                fn ($plan) => ($plan['plan_code'] ?? null) === $planCode
+            );
+
+            if (count($copies) > 1) {
+                // Per-plan endpoints act on the newest copy, which is the plan just added.
+                $this->api()->terminatePlan($serviceId, $planCode);
+
+                $this->errorResult('Customer already has this plan', [
+                    'site_builder_user_id' => $serviceId,
+                    'plan_code' => $planCode,
+                ]);
+            }
 
             return $this->getAccountInfo($serviceId, $planCode, 'Plan added to existing account');
         } catch (Throwable $e) {
@@ -144,7 +157,7 @@ class Provider extends Category implements ProviderInterface
     }
 
     /**
-     * Change the plan. The API replaces "the active plan", so only single-plan accounts are supported.
+     * Change the plan. The API sets every other active plan to `inactive`, so only single-plan accounts are supported.
      *
      * @throws \Upmind\ProvisionBase\Exception\ProvisionFunctionError
      * @throws \Throwable
