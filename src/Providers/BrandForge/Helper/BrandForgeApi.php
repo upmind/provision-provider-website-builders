@@ -20,6 +20,8 @@ class BrandForgeApi
 
     protected ?int $lastStatusCode = null;
 
+    protected ?string $lastMessage = null;
+
     public function __construct(Client $client)
     {
         $this->client = $client;
@@ -37,12 +39,12 @@ class BrandForgeApi
     }
 
     /**
-     * Create an account. If the email already has an account, the API adds the plan to that account and returns
-     * HTTP 200 instead of 201. The response `plan_code` is then the account's primary plan, not the added plan.
+     * Create an account with its first plan. If the email already has an account, the API returns HTTP 200
+     * instead of 201. It adds the plan, or returns the existing plan if the account already has this package.
      *
      * @param array<string, mixed> $data
      *
-     * @return array<string, mixed> Account with `service_id`, `email`, `status` and `plan_code`
+     * @return array<string, mixed> Data with `service_id`, the new `plan` and all `plans`
      *
      * @throws \GuzzleHttp\Exception\GuzzleException
      * @throws \Upmind\ProvisionBase\Exception\ProvisionFunctionError
@@ -55,7 +57,7 @@ class BrandForgeApi
     /**
      * Add a plan to an account. The account keeps its existing plans.
      *
-     * @return array<string, mixed>
+     * @return array<string, mixed> Data with the new `plan` and all `plans`
      *
      * @throws \GuzzleHttp\Exception\GuzzleException
      * @throws \Upmind\ProvisionBase\Exception\ProvisionFunctionError
@@ -70,17 +72,18 @@ class BrandForgeApi
     }
 
     /**
-     * Replace the account's plan. The API sets every other active plan to `inactive`.
+     * Change one plan to another package. The plan keeps its `plan_id`.
      *
      * @return array<string, mixed>
      *
      * @throws \GuzzleHttp\Exception\GuzzleException
      * @throws \Upmind\ProvisionBase\Exception\ProvisionFunctionError
      */
-    public function changePackage(string $serviceId, string $planCode): array
+    public function changePackage(string $serviceId, string $planId, string $planCode): array
     {
         return $this->request('POST', 'provision/change_package', [], [
             'service_id' => $serviceId,
+            'plan_id' => $planId,
             'plan_code' => $planCode,
         ]);
     }
@@ -136,11 +139,11 @@ class BrandForgeApi
      * @throws \GuzzleHttp\Exception\GuzzleException
      * @throws \Upmind\ProvisionBase\Exception\ProvisionFunctionError
      */
-    public function suspendPlan(string $serviceId, string $planCode): array
+    public function suspendPlan(string $serviceId, string $planId): array
     {
         return $this->request('POST', 'provision/suspend_plan', [], [
             'service_id' => $serviceId,
-            'plan_code' => $planCode,
+            'plan_id' => $planId,
         ]);
     }
 
@@ -150,11 +153,11 @@ class BrandForgeApi
      * @throws \GuzzleHttp\Exception\GuzzleException
      * @throws \Upmind\ProvisionBase\Exception\ProvisionFunctionError
      */
-    public function unsuspendPlan(string $serviceId, string $planCode): array
+    public function unsuspendPlan(string $serviceId, string $planId): array
     {
         return $this->request('POST', 'provision/unsuspend_plan', [], [
             'service_id' => $serviceId,
-            'plan_code' => $planCode,
+            'plan_id' => $planId,
         ]);
     }
 
@@ -164,18 +167,18 @@ class BrandForgeApi
      * @throws \GuzzleHttp\Exception\GuzzleException
      * @throws \Upmind\ProvisionBase\Exception\ProvisionFunctionError
      */
-    public function terminatePlan(string $serviceId, string $planCode): array
+    public function terminatePlan(string $serviceId, string $planId): array
     {
         return $this->request('POST', 'provision/terminate_plan', [], [
             'service_id' => $serviceId,
-            'plan_code' => $planCode,
+            'plan_id' => $planId,
         ]);
     }
 
     /**
-     * Issue a short-lived login URL. The response is also the only source of the account's plan list.
+     * Issue a short-lived login URL.
      *
-     * @return array<string, mixed> Data with `token`, `login_url` and `plans`
+     * @return array<string, mixed> Data with `token` and `login_url`
      *
      * @throws \GuzzleHttp\Exception\GuzzleException
      * @throws \Upmind\ProvisionBase\Exception\ProvisionFunctionError
@@ -188,7 +191,7 @@ class BrandForgeApi
     }
 
     /**
-     * @return array<string, mixed> Data with `package`, `credits` and `workspaces`
+     * @return array<string, mixed> Data with `plans`, `package`, `credits` and `workspaces`
      *
      * @throws \GuzzleHttp\Exception\GuzzleException
      * @throws \Upmind\ProvisionBase\Exception\ProvisionFunctionError
@@ -206,6 +209,14 @@ class BrandForgeApi
     public function lastStatusCode(): ?int
     {
         return $this->lastStatusCode;
+    }
+
+    /**
+     * `message` property of the last response envelope.
+     */
+    public function lastMessage(): ?string
+    {
+        return $this->lastMessage;
     }
 
     /**
@@ -232,6 +243,7 @@ class BrandForgeApi
         }
 
         $this->lastStatusCode = null;
+        $this->lastMessage = null;
         $response = $this->client->request($method, $path, $options);
         $this->lastStatusCode = $response->getStatusCode();
         $responseBody = trim($response->getBody()->__toString());
@@ -244,6 +256,8 @@ class BrandForgeApi
                     'response' => Str::limit($responseBody, 300),
                 ]);
         }
+
+        $this->lastMessage = is_string($result['message'] ?? null) ? $result['message'] : null;
 
         if (($result['success'] ?? true) === false) {
             throw ProvisionFunctionError::create(

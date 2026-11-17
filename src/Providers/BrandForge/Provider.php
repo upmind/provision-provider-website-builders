@@ -26,9 +26,8 @@ use Upmind\ProvisionProviders\WebsiteBuilders\Providers\BrandForge\Helper\BrandF
  * BrandForge provider.
  *
  * One customer has one BrandForge account. Each order is one plan on that account.
- * `site_builder_user_id` is the account `service_id`. `account_reference` is the order's `plan_code`.
- * The per-plan endpoints identify a plan only by `plan_code`, so the provider allows each plan once per customer.
- * Lifecycle functions act on the whole account when it holds one plan, and on the order's plan otherwise.
+ * `site_builder_user_id` is the account `service_id`. `account_reference` is the order's `plan_id`.
+ * Lifecycle functions act on the whole account when the order's plan is its only plan, and on the plan otherwise.
  */
 class Provider extends Category implements ProviderInterface
 {
@@ -69,52 +68,33 @@ class Provider extends Category implements ProviderInterface
     {
         try {
             $planCode = $this->resolvePlanCode((string)$params->package_reference);
-            $serviceId = empty($params->site_builder_user_id) ? null : (string)$params->site_builder_user_id;
 
-            if ($serviceId !== null) {
-                if ($this->findPlan($this->getPlans($serviceId), $planCode) !== null) {
-                    $this->errorResult('Customer already has this plan', [
-                        'site_builder_user_id' => $serviceId,
-                        'plan_code' => $planCode,
-                    ]);
+            if (!empty($params->site_builder_user_id)) {
+                $serviceId = (string)$params->site_builder_user_id;
+                $result = $this->api()->addPlan($serviceId, $planCode, (string)$params->customer_id);
+                $message = 'Plan added to existing account';
+            } else {
+                $result = $this->api()->createAccount($this->getCreateAccountData($params, $planCode));
+                $serviceId = (string)($result['service_id'] ?? '');
+                $message = $this->api()->lastStatusCode() === 201
+                    ? 'Account created'
+                    : 'Plan added to existing account';
+
+                // For a package the account already has, `create` returns the existing plan. Each order needs its own.
+                if ($serviceId !== '' && stripos((string)$this->api()->lastMessage(), 'already') !== false) {
+                    $result = $this->api()->addPlan($serviceId, $planCode, (string)$params->customer_id);
                 }
-
-                $this->api()->addPlan($serviceId, $planCode, (string)$params->customer_id);
-
-                return $this->getAccountInfo($serviceId, $planCode, 'Plan added to existing account');
             }
 
-            $account = $this->api()->createAccount($this->getCreateAccountData($params, $planCode));
+            $planId = (string)($result['plan']['plan_id'] ?? '');
 
-            if (empty($account['service_id'])) {
-                $this->errorResult('Account ID missing from Provider API response', [
-                    'response_data' => $account,
+            if ($serviceId === '' || $planId === '') {
+                $this->errorResult('Account or plan ID missing from Provider API response', [
+                    'response_data' => $result,
                 ]);
             }
 
-            $serviceId = (string)$account['service_id'];
-
-            if ($this->api()->lastStatusCode() === 201) {
-                return $this->getAccountInfo($serviceId, $planCode, 'Account created');
-            }
-
-            // The email already had an account, and the API added the plan to it.
-            $copies = array_filter(
-                $this->getPlans($serviceId),
-                fn ($plan) => ($plan['plan_code'] ?? null) === $planCode
-            );
-
-            if (count($copies) > 1) {
-                // Per-plan endpoints act on the newest copy, which is the plan just added.
-                $this->api()->terminatePlan($serviceId, $planCode);
-
-                $this->errorResult('Customer already has this plan', [
-                    'site_builder_user_id' => $serviceId,
-                    'plan_code' => $planCode,
-                ]);
-            }
-
-            return $this->getAccountInfo($serviceId, $planCode, 'Plan added to existing account');
+            return $this->getAccountInfo($serviceId, $planId, $message);
         } catch (Throwable $e) {
             $this->handleException($e);
         }
@@ -157,7 +137,7 @@ class Provider extends Category implements ProviderInterface
     }
 
     /**
-     * Change the plan. The API sets every other active plan to `inactive`, so only single-plan accounts are supported.
+     * Change the order's plan to another package. The plan keeps its `plan_id`.
      *
      * @throws \Upmind\ProvisionBase\Exception\ProvisionFunctionError
      * @throws \Throwable
@@ -166,30 +146,18 @@ class Provider extends Category implements ProviderInterface
     {
         try {
             $serviceId = $this->getServiceId($params->site_builder_user_id);
-            $currentPlanCode = (string)$params->account_reference;
+            $planId = (string)$params->account_reference;
             $newPlanCode = $this->resolvePlanCode((string)$params->package_reference);
 
-            $plans = $this->getPlans($serviceId);
+            $plan = $this->getPlan($this->getPlans($serviceId), $planId);
 
-            if ($this->findPlan($plans, $currentPlanCode) === null) {
-                $this->errorResult('Plan not found on this account', [
-                    'plan_code' => $currentPlanCode,
-                ]);
+            if (($plan['plan_code'] ?? null) === $newPlanCode) {
+                return $this->getAccountInfo($serviceId, $planId, 'Plan unchanged');
             }
 
-            if ($newPlanCode === $currentPlanCode) {
-                return $this->getAccountInfo($serviceId, $currentPlanCode, 'Plan unchanged');
-            }
+            $this->api()->changePackage($serviceId, $planId, $newPlanCode);
 
-            if (count($plans) > 1) {
-                $this->errorResult('Plan change is not supported for customers with more than one plan', [
-                    'plan_codes' => array_column($plans, 'plan_code'),
-                ]);
-            }
-
-            $this->api()->changePackage($serviceId, $newPlanCode);
-
-            return $this->getAccountInfo($serviceId, $newPlanCode, 'Plan changed');
+            return $this->getAccountInfo($serviceId, $planId, 'Plan changed');
         } catch (Throwable $e) {
             $this->handleException($e);
         }
@@ -203,17 +171,17 @@ class Provider extends Category implements ProviderInterface
     {
         try {
             $serviceId = $this->getServiceId($params->site_builder_user_id);
-            $planCode = (string)$params->account_reference;
+            $planId = (string)$params->account_reference;
 
-            if ($this->isOnlyPlan($serviceId, $planCode)) {
+            if ($this->isOnlyPlan($serviceId, $planId)) {
                 $this->api()->suspendAccount($serviceId);
 
-                return $this->getAccountInfo($serviceId, $planCode, 'Account suspended', true);
+                return $this->getAccountInfo($serviceId, $planId, 'Account suspended');
             }
 
-            $this->api()->suspendPlan($serviceId, $planCode);
+            $this->api()->suspendPlan($serviceId, $planId);
 
-            return $this->getAccountInfo($serviceId, $planCode, 'Plan suspended');
+            return $this->getAccountInfo($serviceId, $planId, 'Plan suspended');
         } catch (Throwable $e) {
             $this->handleException($e);
         }
@@ -227,24 +195,25 @@ class Provider extends Category implements ProviderInterface
     {
         try {
             $serviceId = $this->getServiceId($params->site_builder_user_id);
-            $planCode = (string)$params->account_reference;
+            $planId = (string)$params->account_reference;
 
-            if ($this->isOnlyPlan($serviceId, $planCode)) {
+            if ($this->isOnlyPlan($serviceId, $planId)) {
                 $this->api()->unsuspendAccount($serviceId);
-
-                return $this->getAccountInfo($serviceId, $planCode, 'Account unsuspended');
             }
 
-            $this->api()->unsuspendPlan($serviceId, $planCode);
+            // The plan can still be suspended on its own, e.g. after a per-plan suspend.
+            if ($this->isSuspended($this->getPlan($this->getPlans($serviceId), $planId))) {
+                $this->api()->unsuspendPlan($serviceId, $planId);
+            }
 
-            return $this->getAccountInfo($serviceId, $planCode, 'Plan unsuspended');
+            return $this->getAccountInfo($serviceId, $planId, 'Plan unsuspended');
         } catch (Throwable $e) {
             $this->handleException($e);
         }
     }
 
     /**
-     * Terminate the whole account if this is its only plan. Otherwise terminate the order's plan only.
+     * Terminate the whole account if the order's plan is its only plan. Otherwise terminate the plan only.
      *
      * @throws \Upmind\ProvisionBase\Exception\ProvisionFunctionError
      * @throws \Throwable
@@ -253,15 +222,15 @@ class Provider extends Category implements ProviderInterface
     {
         try {
             $serviceId = $this->getServiceId($params->site_builder_user_id);
-            $planCode = (string)$params->account_reference;
+            $planId = (string)$params->account_reference;
 
-            if ($this->isOnlyPlan($serviceId, $planCode)) {
+            if ($this->isOnlyPlan($serviceId, $planId)) {
                 $result = $this->api()->terminateAccount($serviceId);
 
                 return $this->okResult('Account terminated', [], ['response_data' => $result]);
             }
 
-            $result = $this->api()->terminatePlan($serviceId, $planCode);
+            $result = $this->api()->terminatePlan($serviceId, $planId);
 
             return $this->okResult('Plan terminated', [], ['response_data' => $result]);
         } catch (Throwable $e) {
@@ -270,42 +239,32 @@ class Provider extends Category implements ProviderInterface
     }
 
     /**
-     * @param bool $accountSuspended Skip the plan lookup, which needs SSO, and report the account as suspended
-     *
      * @throws \GuzzleHttp\Exception\GuzzleException
      * @throws \Upmind\ProvisionBase\Exception\ProvisionFunctionError
      */
     protected function getAccountInfo(
         string $serviceId,
-        string $planCode,
-        string $message = 'Account data obtained',
-        bool $accountSuspended = false
+        string $planId,
+        string $message = 'Account data obtained'
     ): AccountInfo {
-        $plan = $accountSuspended ? [] : $this->findPlan($this->getPlans($serviceId), $planCode);
-
-        if ($plan === null) {
-            $this->errorResult('Plan not found on this account', [
-                'plan_code' => $planCode,
-            ]);
-        }
-
         $status = $this->api()->getStatus($serviceId);
+        $plan = $this->getPlan($this->filterLivePlans($status['plans'] ?? []), $planId);
 
         return AccountInfo::create([
             'site_builder_user_id' => $serviceId,
-            'account_reference' => $planCode,
+            'account_reference' => $planId,
             'domain_name' => null,
-            'package_reference' => $planCode,
-            'suspended' => $accountSuspended || strtolower((string)($plan['status'] ?? '')) === 'suspended',
+            'package_reference' => (string)$plan['plan_code'],
+            'suspended' => $this->isSuspended($plan),
             'site_count' => isset($status['workspaces']['total']) ? (int)$status['workspaces']['total'] : null,
             'extra' => [
                 'active_plan_code' => $status['package']['plan_code'] ?? null,
                 'plan' => [
-                    'id' => $plan['id'] ?? null,
+                    'plan_id' => $plan['plan_id'] ?? null,
                     'status' => $plan['status'] ?? null,
                     'primary' => $plan['primary'] ?? null,
                     'credits' => $plan['credits'] ?? null,
-                    'max_workspaces' => $plan['max_workspaces'] ?? null,
+                    'created_at' => $plan['created_at'] ?? null,
                 ],
                 'credits' => $status['credits'] ?? null,
                 'workspaces' => [
@@ -318,7 +277,7 @@ class Provider extends Category implements ProviderInterface
     }
 
     /**
-     * Get the account's current plans. Only the SSO response lists them; its login token is discarded.
+     * Get the account's current plans.
      *
      * @return array<int, array<string, mixed>>
      *
@@ -327,8 +286,16 @@ class Provider extends Category implements ProviderInterface
      */
     protected function getPlans(string $serviceId): array
     {
-        $plans = $this->api()->sso($serviceId)['plans'] ?? [];
+        return $this->filterLivePlans($this->api()->getStatus($serviceId)['plans'] ?? []);
+    }
 
+    /**
+     * @param mixed $plans
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    protected function filterLivePlans($plans): array
+    {
         return array_values(array_filter(
             is_array($plans) ? $plans : [],
             fn ($plan) => is_array($plan)
@@ -342,15 +309,10 @@ class Provider extends Category implements ProviderInterface
      * @throws \GuzzleHttp\Exception\GuzzleException
      * @throws \Upmind\ProvisionBase\Exception\ProvisionFunctionError
      */
-    protected function isOnlyPlan(string $serviceId, string $planCode): bool
+    protected function isOnlyPlan(string $serviceId, string $planId): bool
     {
         $plans = $this->getPlans($serviceId);
-
-        if ($this->findPlan($plans, $planCode) === null) {
-            $this->errorResult('Plan not found on this account', [
-                'plan_code' => $planCode,
-            ]);
-        }
+        $this->getPlan($plans, $planId);
 
         return count($plans) === 1;
     }
@@ -358,17 +320,29 @@ class Provider extends Category implements ProviderInterface
     /**
      * @param array<int, array<string, mixed>> $plans
      *
-     * @return array<string, mixed>|null
+     * @return array<string, mixed>
+     *
+     * @throws \Upmind\ProvisionBase\Exception\ProvisionFunctionError
      */
-    protected function findPlan(array $plans, string $planCode): ?array
+    protected function getPlan(array $plans, string $planId): array
     {
         foreach ($plans as $plan) {
-            if (($plan['plan_code'] ?? null) === $planCode) {
+            if ((string)($plan['plan_id'] ?? '') === $planId) {
                 return $plan;
             }
         }
 
-        return null;
+        $this->errorResult('Plan not found on this account', [
+            'plan_id' => $planId,
+        ]);
+    }
+
+    /**
+     * @param array<string, mixed> $plan
+     */
+    protected function isSuspended(array $plan): bool
+    {
+        return strtolower((string)($plan['status'] ?? '')) === 'suspended';
     }
 
     /**
